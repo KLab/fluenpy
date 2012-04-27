@@ -3,6 +3,8 @@ import os
 from collections import namedtuple
 from fluenpy.error import ConfigError, ConfigParserError
 
+__all__ = 'Element Configurable config_param parse read'.split()
+
 class Element(dict):
     def __init__(self, name, arg, attrs, elements, used=None):
         dict.__init__(self)
@@ -120,7 +122,7 @@ class Parser(object):
             if m:
                 e_name = m.group(1)
                 e_arg = m.group(2) or ""
-                e_attrs, e_elems = self.parse(false, e_name)
+                e_attrs, e_elems = self.parse(False, e_name)
                 elems.append(Element(e_name, e_arg, e_attrs, e_elems))
                 continue
 
@@ -142,12 +144,20 @@ class Parser(object):
 
 
 _undef = []
+_type_map = dict(string=str, integer=int, float=float,
+                 size=_size_value, bool=_bool_value, time=_time_value,
+                 )
 
 class config_param(object):
     def __init__(self, name, type, default=_undef):
         self.name = name
-        self.type = type
         self.default = default
+
+        try:
+            self.type = _type_map(type)
+        except KeyError:
+            raise ValueError("unknown config_param type %r" % (type,))
+
 
 class Configurable(object):
     def configure(self, conf):
