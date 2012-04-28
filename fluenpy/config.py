@@ -149,24 +149,24 @@ _type_map = dict(string=str, integer=int, float=float,
                  )
 
 class config_param(object):
-    def __init__(self, name, type, default=_undef):
-        self.name = name
+    def __init__(self, type, default=_undef):
         self.default = default
-
         try:
-            self.type = _type_map(type)
+            self.type = _type_map[type]
         except KeyError:
             raise ValueError("unknown config_param type %r" % (type,))
 
 
 class Configurable(object):
     def configure(self, conf):
-        dic = type(self).__dict__
-        for varname, param in dic.items():
+        kls = type(self)
+
+        for varname in dir(kls):
+            param = getattr(kls, varname)
             if not isinstance(param, config_param):
                 continue
-            if param.name in conf:
-                setattr(self, varname, param.type(conf[param.name]))
+            if varname in conf:
+                setattr(self, varname, param.type(conf[varname]))
             elif param.default is not _undef:
                 setattr(self, varname, param.default)
             else:
