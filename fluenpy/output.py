@@ -8,11 +8,12 @@
 """
 from __future__ import print_function, division, absolute_import, with_statement
 import logging
+log = logging.getLogger(__name__)
 
 from fluenpy.plugin import Plugin
 from fluenpy.config import Configurable, config_param
-
-log = logging.getLogger(__name__)
+from time import time as now
+import gevent
 
 
 class NullOutputChainClass(object):
@@ -54,7 +55,7 @@ class BufferedOutput(Output):
     #num_threads = config_param('integer', 1)
 
     def configure(self, conf):
-        super(BufferedOutput, self).configure()
+        super(BufferedOutput, self).configure(conf)
 
         self._buffer = Plugin.new_buffer(self.buffer_type)
         self._buffer.configure(conf)
@@ -62,7 +63,6 @@ class BufferedOutput(Output):
         #todo: status
 
     def start(self):
-        self._next_flush_time = time.time() + self.flush_interval
         self._buffer.start()
         #todo: secondary.start()
         gevent.spawn(self.run)
@@ -75,8 +75,9 @@ class BufferedOutput(Output):
                 retry_wait = self.retry_wait
                 while retry <= self.retry_limit:
                     try:
-                        self.write(chunk.tag, chunk.read())
-                    except Exception:
+                        self.write(chunk)
+                    except Exception as e:
+                        log.warn("fail to write: %r", e)
                         gevent.sleep(retry_wait)
                         retry_wait *= 2
             except gevent.queue.Empty:

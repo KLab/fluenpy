@@ -30,7 +30,7 @@ class ForwardOutput(ObjectBufferedOutput):
         self._nodes = []
 
     def configure(self, conf):
-        super(ForwardOutput, self).configure()
+        super(ForwardOutput, self).configure(conf)
 
         for e in conf.elements:
             if e.name != "server":
@@ -41,11 +41,13 @@ class ForwardOutput(ObjectBufferedOutput):
             log.info("adding forwarding server %s:%s", host, port)
 
     def write(self, chunk):
+        log.debug("Sending tag=%s", chunk.key)
         for node in self._nodes:
             try:
                 self.send_data(node, chunk.key, chunk.read())
                 break
-            except Exception:
+            except Exception as e:
+                log.warn("fail to send data to %s: %s", node, e)
                 pass
         else:
             raise Exception("No nodes are available.")

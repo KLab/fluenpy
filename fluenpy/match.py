@@ -29,7 +29,7 @@ class Match(object):
         return self._pattern.match(tag)
 
     def emit(self, tag, es):
-        chain = NullOutputChain.instance
+        chain = NullOutputChain
         self.output.emit(tag, es, chain)
 
     def start(self):

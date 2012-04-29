@@ -15,6 +15,7 @@ from fluenpy.config import Configurable, config_param
 
 from collections import defaultdict
 import gevent.queue as gqueue
+import gevent
 
 
 class BaseBufferChunk(object):
@@ -36,11 +37,13 @@ class BaseBuffer(Configurable):
     buffer_queue_limit = config_param('integer', 128)
     flush_interval = config_param('time', 1)
 
+    _shutdown = False
+
     #Override this.
     chunk_class = None
 
     def start(self):
-        self._queue = gqueue(self.buffer_queue_limit)
+        self._queue = gqueue.Queue(self.buffer_queue_limit)
         self._map = defaultdict(self.chunk_class)
         gevent.spawn(self.run)
 
@@ -50,10 +53,10 @@ class BaseBuffer(Configurable):
             gevent.sleep(self.flush_interval)
             self.flush()
 
-    def emit(self, key, data. chain):
+    def emit(self, key, data, chain):
         top = self._map.get(key)
         if not top:
-            top = self._map[key] = new_chunk(key)
+            top = self._map[key] = self.chunk_class(key)
 
         if len(top) + len(data) <= self.buffer_chunk_limit:
             chain.next()
@@ -86,15 +89,14 @@ class BaseBuffer(Configurable):
     def keys(self):
         return self._map.keys()
 
-    def queue_size(self):
-        return len(self._queue)
-
     def flush(self):
+        log.debug("flush: keys=%s", self._map.keys())
         map_ = self._map
         keys = list(map_.keys())
         for key in keys:
             chunk = map_.pop(key)
             self._queue.put(chunk) # Would block here.
+        log.debug("flush: queue=%s", self._queue.qsize())
 
     def get(self, block=True, timeout=None):
         return self._queue.get(block, timeout)

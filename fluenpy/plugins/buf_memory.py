@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 
 from fluenpy import error
 from fluenpy.plugin import Plugin
-from fluenpy.buffer import BufferChunk, BasicBuffer
+from fluenpy.buffer import BaseBufferChunk, BaseBuffer
 from fluenpy.config import config_param
 
 try:
@@ -23,12 +23,12 @@ except ImportError:
     from io import BytesIO
 
 
-class MemoryBufferChunk(BufferChunk):
+class MemoryBufferChunk(BaseBufferChunk):
     def __init__(self, key, data=b''):
         super(MemoryBufferChunk, self).__init__(key)
         self._data = bytearray(data)
 
-    def __lshift__(self, data):
+    def __iadd__(self, data):
         self._data += data
         return self
 
@@ -41,7 +41,7 @@ class MemoryBufferChunk(BufferChunk):
     def open(self):
         return BytesIO(self._data)
 
-class MemoryBuffer(BasicBuffer):
+class MemoryBuffer(BaseBuffer):
 
     buffer_chunk_limit = config_param("size", 32 * 1024**2)
     buffer_queue_limit = config_param("integer", 32)
