@@ -15,6 +15,12 @@ from fluenpy.config import Configurable, config_param
 log = logging.getLogger(__name__)
 
 
+class NullOutputChainClass(object):
+    def next(self):
+        pass
+NullOutputChain = NullOutputChainClass()
+
+
 class Output(Configurable):
     def start(self):
         pass
@@ -32,27 +38,26 @@ class Output(Configurable):
                      )
 
 class BufferedOutput(Output):
+
+    _shutdown = False
+
     def __init__(self):
         super(BufferedOutput, self).__init__()
-        self._next_flush_time = 0
         self._last_retry_time = 0
         self._next_retry_time = 0
         self._secondary_limit = 8
         self._emit_count = 0
 
     buffer_type = config_param('string', 'memory')
-    flush_interval = config_param('time', 60)
     retry_limit = config_param('integer', 17)
     retry_wait = config_param('time', 1.0)
-    num_threads = config_param('integer', 1)
+    #num_threads = config_param('integer', 1)
 
     def configure(self, conf):
         super(BufferedOutput, self).configure()
 
         self._buffer = Plugin.new_buffer(self.buffer_type)
         self._buffer.configure(conf)
-
-        #todo: threads
         #todo: secondary
         #todo: status
 
@@ -60,15 +65,40 @@ class BufferedOutput(Output):
         self._next_flush_time = time.time() + self.flush_interval
         self._buffer.start()
         #todo: secondary.start()
-        #todo: workers.start()
+        gevent.spawn(self.run)
+
+    def run(self):
+        while not self._shutdown:
+            try:
+                chunk = self._buffer.get(timeout=1.0)
+                retry = 0
+                retry_wait = self.retry_wait
+                while retry <= self.retry_limit:
+                    try:
+                        self.write(chunk.tag, chunk.read())
+                    except Exception:
+                        gevent.sleep(retry_wait)
+                        retry_wait *= 2
+            except gevent.queue.Empty:
+                pass
+        while 1:
+            try:
+                chunk = self._buffer.get_nowait()
+                self.write(chunk.tag, chunk.read())
+            except gevent.queue.Empty:
+                break
 
     def shutdown(self):
         self._buffer.shutdown()
+        self._shutdown = True
 
-    def emit(self, tag, es, chain, key=''):
+    def emit(self, tag, es, chain=NullOutputChain, key=''):
         self._emit_count += 1
         data = self.format_stream(tag, es)
         self._buffer.emit(key, data, chain)
+
+    def write(self, chunk):
+        raise NotImplemented
 
     def format_stream(self, tag, es):
         out = bytearray()
@@ -78,8 +108,17 @@ class BufferedOutput(Output):
         return out
 
 
-class NullOutputChain(object):
-    def next(self):
-        pass
+class ObjectBufferedOutput(BufferedOutput):
+    """
+    ``chunk`` に msgpack 形式でデータを格納する.
+    継承したクラスは ``format`` メソッドを実装する必要がない.
+    """
 
-NullOutputChain.instance = NullOutputChain()
+    def emit(self, tag, es, chain=NullOutputChain):
+        self._emit_count += 1
+        data = bytearray()
+        for rec in data:
+            data += msgpack.packb(rec)
+        key = tag
+        self._buffer.emit(key, data, chain)
+

@@ -46,7 +46,7 @@ class MemoryBuffer(BasicBuffer):
     buffer_chunk_limit = config_param("size", 32 * 1024**2)
     buffer_queue_limit = config_param("integer", 32)
 
-    def new_chunk(self, key):
-        return MemoryBufferChunk(key)
+    chunk_class = MemoryBufferChunk
+
 
 Plugin.register_buffer('memory', MemoryBuffer)
