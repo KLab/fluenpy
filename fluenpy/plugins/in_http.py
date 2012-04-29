@@ -68,6 +68,6 @@ class Httpinput(Input):
         server.start()
 
     def shutdown(self):
-        server.stop()
+        self._server.stop()
 
 Plugin.register_input('http', Httpinput)
