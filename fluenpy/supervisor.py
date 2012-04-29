@@ -9,7 +9,7 @@
 
 from __future__ import print_function, division, absolute_import
 
-import fluenpy.engine import Engine
+from fluenpy.engine import Engine
 
 class Supervisor(object):
     def __init__(self, opts):
@@ -18,6 +18,5 @@ class Supervisor(object):
 
     def start(self):
         #todo: supervise
-        self._engine = engine = Engine()
-        engine.read_config(opts.config)
-        engine.run()
+        Engine.read_config(self._opts.config)
+        Engine.run()

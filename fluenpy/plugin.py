@@ -14,9 +14,9 @@ import imp
 import glob
 
 import fluenpy.plugins
+from fluenpy.config import Configurable
 
 log = logging.getLogger(__name__)
-
 
 class PluginClass(object):
     def __init__(self):
@@ -36,13 +36,13 @@ class PluginClass(object):
         self._buffer[type] = klass
         log.debug("registered buffer plugin %r", type)
 
-    def new_input(type):
+    def new_input(self, type):
         return self._input[type]()
 
-    def new_output(type):
+    def new_output(self, type):
         return self._output[type]()
 
-    def new_buffer(type):
+    def new_buffer(self, type):
         return self._buffer[type]()
 
     def load_plugins(self):

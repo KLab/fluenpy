@@ -15,7 +15,7 @@ import sys
 from fluenpy.supervisor import Supervisor
 from optparse import OptionParser
 
-DEFUALT_CONFIG_PATH = '/etc/fluent/fluent.conf'
+DEFAULT_CONFIG_PATH = '/etc/fluent/fluent.conf'
 
 def make_parser():
     parser = OptionParser()
@@ -23,6 +23,7 @@ def make_parser():
     option('-c', '--config', default=DEFAULT_CONFIG_PATH,
            help="config file path"
            )
+    return parser
 
 def main():
     parser = make_parser()
