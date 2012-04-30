@@ -93,13 +93,14 @@ class BaseBuffer(Configurable):
         return self._map.keys()
 
     def flush(self):
-        log.debug("flush: keys=%s", self._map.keys())
         map_ = self._map
         keys = list(map_.keys())
         for key in keys:
             chunk = map_.pop(key)
             self._queue.put(chunk) # Would block here.
-        log.debug("flush: queue=%s", self._queue.qsize())
+            gevent.sleep(0) # give a chance to write.
+        if keys:
+            log.debug("flush: queue=%s", self._queue.qsize())
 
     def get(self, block=True, timeout=None):
         return self._queue.get(block, timeout)
