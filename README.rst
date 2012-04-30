@@ -1,6 +1,8 @@
 fluenpy
 =======
 
+fluenpy IS PRE-ALPHA QUALITY.
+
 install
 -------
 
