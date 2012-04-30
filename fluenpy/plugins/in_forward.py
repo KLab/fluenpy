@@ -35,6 +35,9 @@ class UnpackStream(object):
         unp.feed(self._bytes)
         return unp
 
+    def to_mpac(self):
+        return self._bytes
+
 class HeartbeatServer(DatagramServer):
     def handle(self, data, address):
         self.socket.sendto('', address)
@@ -79,36 +82,33 @@ class ForwardInput(Input):
                 obj, pos = decoder.raw_decode(data, pos)
                 self.on_message(obj)
             except ValueError:
-                remain = sock.recv(4000)
+                remain = sock.recv(1000000)
                 if not remain:
                     break
                 pos = 0
                 data = data[pos:] + remain
 
-    def mpack_hander(self, data, sock):
+    def mpack_handler(self, data, sock):
         unpacker = Unpacker()
         unpacker.feed(data)
         while 1:
             for msg in unpacker:
                 self.on_message(msg)
-            next = sock.recv(4000)
+            next = sock.recv(1000000)
             if not next:
                 break
             unpacker.feed(next)
 
     def on_connect(self, sock, addr):
         try:
-            data = sock.recv(4000)
+            data = sock.recv(1000000)
             if not data:
                 return
             if data[0] in b'{[':
                 self.json_handler(data, sock)
             else:
-                self.mpack_hander(data, sock)
+                self.mpack_handler(data, sock)
         finally:
             sock.close()
-
-    def on_heartbeat(self):
-        pass
 
 Plugin.register_input('forward', ForwardInput)

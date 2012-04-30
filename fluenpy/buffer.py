@@ -30,6 +30,10 @@ class BaseBufferChunk(object):
         """Return bytesize of this chunk."""
         raise NotImplemented
 
+    def purge(self):
+        """Called when throw away this chunk."""
+        pass
+
 
 class BaseBuffer(Configurable):
 
@@ -77,11 +81,10 @@ class BaseBuffer(Configurable):
             self._queue.put_nowait(top)
             self._map[key] = nc
             chain.next()  # What is chain?
-            return len(self.queue) == 1
+            return self._queue.qsize() == 1
         except gqueue.Full:
             log.error("buffer_queue_limit is exceeded.")
             nc.purge()
-            raise
         except:
             nc.purge()
             raise

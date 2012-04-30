@@ -29,7 +29,7 @@ class Output(Configurable):
     def shutdown(self):
         pass
 
-    def emit(self, tag, es, chain):
+    def emit(self, tag, es, chain=NullOutputChain):
         pass
 
     def secondary_init(self, primary):
@@ -52,7 +52,6 @@ class BufferedOutput(Output):
     buffer_type = config_param('string', 'memory')
     retry_limit = config_param('integer', 17)
     retry_wait = config_param('time', 1.0)
-    #num_threads = config_param('integer', 1)
 
     def configure(self, conf):
         super(BufferedOutput, self).configure(conf)
@@ -63,6 +62,7 @@ class BufferedOutput(Output):
         #todo: status
 
     def start(self):
+        super(BufferedOutput, self).start()
         self._buffer.start()
         #todo: secondary.start()
         gevent.spawn(self.run)
@@ -92,6 +92,7 @@ class BufferedOutput(Output):
     def shutdown(self):
         self._buffer.shutdown()
         self._shutdown = True
+        super(BufferedOutput, self).shutdown()
 
     def emit(self, tag, es, chain=NullOutputChain, key=''):
         self._emit_count += 1
@@ -110,16 +111,19 @@ class BufferedOutput(Output):
 
 
 class ObjectBufferedOutput(BufferedOutput):
-    """
+    u"""
     ``chunk`` に msgpack 形式でデータを格納する.
     継承したクラスは ``format`` メソッドを実装する必要がない.
     """
 
     def emit(self, tag, es, chain=NullOutputChain):
         self._emit_count += 1
-        data = bytearray()
-        for rec in data:
-            data += msgpack.packb(rec)
+        if callable(getattr(es, 'to_mpac', None)):
+            data = es.to_mpac()
+        else:
+            data = bytearray()
+            for rec in es:
+                data += msgpack.packb(rec)
         key = tag
         self._buffer.emit(key, data, chain)
 
