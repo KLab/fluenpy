@@ -41,10 +41,12 @@ class ForwardOutput(ObjectBufferedOutput):
             log.info("adding forwarding server %s:%s", host, port)
 
     def write(self, chunk):
-        log.debug("Sending tag=%s", chunk.key)
+        key = chunk.key
+        data = chunk.read()
+        log.debug("sending tag=%s data=%dbytes", key, len(data))
         for node in self._nodes:
             try:
-                self.send_data(node, chunk.key, chunk.read())
+                self.send_data(node, key, data)
                 break
             except Exception as e:
                 log.warn("fail to send data to %s: %s", node, e)

@@ -60,6 +60,7 @@ class ForwardInput(Input):
 
     def on_message(self, msg):
         tag = msg[0]
+        log.debug("on_message: recieved message %s", tag)
         entries = msg[1]
         ent_type = type(entries)
 

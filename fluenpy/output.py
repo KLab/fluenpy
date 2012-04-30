@@ -14,6 +14,7 @@ from fluenpy.plugin import Plugin
 from fluenpy.config import Configurable, config_param
 from time import time as now
 import gevent
+import msgpack
 
 
 class NullOutputChainClass(object):
@@ -71,17 +72,18 @@ class BufferedOutput(Output):
         while not self._shutdown:
             try:
                 chunk = self._buffer.get(timeout=1.0)
-                retry = 0
-                retry_wait = self.retry_wait
-                while retry <= self.retry_limit:
-                    try:
-                        self.write(chunk)
-                    except Exception as e:
-                        log.warn("fail to write: %r", e)
-                        gevent.sleep(retry_wait)
-                        retry_wait *= 2
             except gevent.queue.Empty:
-                pass
+                continue
+            retry = 0
+            retry_wait = self.retry_wait
+            while retry <= self.retry_limit:
+                try:
+                    self.write(chunk)
+                    break
+                except Exception as e:
+                    log.warn("fail to write: %r", e)
+                    gevent.sleep(retry_wait)
+                    retry_wait *= 2
         while 1:
             try:
                 chunk = self._buffer.get_nowait()
