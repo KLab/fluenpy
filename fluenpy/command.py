@@ -12,6 +12,7 @@
 from __future__ import print_function, division, absolute_import
 
 import sys
+import logging
 from fluenpy.supervisor import Supervisor
 from optparse import OptionParser
 
@@ -23,6 +24,8 @@ def make_parser():
     option('-c', '--config', default=DEFAULT_CONFIG_PATH,
            help="config file path"
            )
+    option('-v', '--verbose', action="count", default=0)
+    option('-q', '--quiet', action="store_true")
     return parser
 
 def main():
@@ -30,4 +33,8 @@ def main():
     opts, args = parser.parse_args()
     if args:
         parser.error("fluent.py doesn't accept commandline arguments.")
+    debug_level = max(logging.DEBUG, logging.INFO - 10*opts.verbose)
+    if opts.quiet:
+        debug_level = logging.WARN
+    logging.basicConfig(level=debug_level)
     Supervisor(opts).start()
