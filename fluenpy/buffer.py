@@ -19,7 +19,7 @@ from time import time as now
 
 
 class BaseBufferChunk(object):
-    def __init__(self, key, expire)
+    def __init__(self, key, expire):
         self.key = key
         self.expire = expire
 
