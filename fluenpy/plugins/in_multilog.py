@@ -157,7 +157,7 @@ class MultilogInput(Input):
                     del lines[-1]
 
                 for line in lines:
-                    self.emit(line.rstlip())
+                    self.emit(line.rstrip())
                 db['pos'] = "%d %d" % (inode, read_pos)
         finally:
             db['pos'] = '%d %d' % (inode, read_pos)
