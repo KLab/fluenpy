@@ -16,9 +16,21 @@ from fluenpy.plugin import Plugin
 from fluenpy import config
 from fluenpy.error import ConfigError
 import gevent
+import signal
 
 log = logging.getLogger(__name__)
 
+_sighandlers_set = False
+
+def shutdown_handler(sig, frame):
+    Engine.shutdown()
+
+def set_sighandlers():
+    global _sighandlers_set
+    if not _sighandlers_set:
+        for sig in (signal.SIGABRT, signal.SIGINT, signal.SIGTERM):
+            signal.signal(sig, shutdown_handler)
+        _sighandlers_set = True
 
 class EngineClass(object):
     def __init__(self):
@@ -26,6 +38,7 @@ class EngineClass(object):
         self._sources = []
         self._match_cache = {}
         self._started = []
+        self._shutdown = False
 
     def read_config(self, path):
         with open(path) as f:
@@ -89,12 +102,22 @@ class EngineClass(object):
                 return m
         return None
 
+    def shutdown(self):
+        self._shutdown = True
+
     def run(self):
+        set_sighandlers()
         for m in self._matches:
             m.start()
         for s in self._sources:
             s.start()
-        while 1:
+
+        while not self._shutdown:
             gevent.sleep(1)
+
+        for s in self._sources:
+            s.shutdown()
+        for m in self._matches:
+            m.shutdown()
 
 Engine = EngineClass()
