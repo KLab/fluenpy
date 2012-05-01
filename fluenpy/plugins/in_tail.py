@@ -27,10 +27,6 @@ class TailInput(Input):
     rotate_wait = config_param('time', default=5)
     pos_file = config_param('string', default=None)
 
-    def __init__(self):
-        super(TailInput, self).__init__()
-        self._paths = []
-
     @property
     def paths(self):
         return self._paths
