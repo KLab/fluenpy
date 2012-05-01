@@ -13,14 +13,15 @@ log = logging.getLogger(__name__)
 from fluenpy import error
 from fluenpy.config import Configurable, config_param
 
-from collections import defaultdict
 import gevent.queue as gqueue
 import gevent
+from time import time as now
 
 
 class BaseBufferChunk(object):
-    def __init__(self, key):
+    def __init__(self, key, expire)
         self.key = key
+        self.expire = expire
 
     def __iadd__(self, data):
         """Append *data* to this chunk."""
@@ -48,19 +49,20 @@ class BaseBuffer(Configurable):
 
     def start(self):
         self._queue = gqueue.Queue(self.buffer_queue_limit)
-        self._map = defaultdict(self.chunk_class)
+        self._map = {}
         gevent.spawn(self.run)
 
     def run(self):
+        # flush を実行する間隔
+        check_interval = min(self.flush_interval/2, 2)
         while not self._shutdown:
-            # todo: flush にかかった時間に応じて次の sleep 時間を引く.
-            gevent.sleep(self.flush_interval)
-            self.flush()
+            gevent.sleep(check_interval)
+            self.flush(force=False)
 
     def emit(self, key, data, chain):
         top = self._map.get(key)
         if not top:
-            top = self._map[key] = self.chunk_class(key)
+            top = self._map[key] = self.chunk_class(key, now()+self.flush_interval)
 
         if len(top) + len(data) <= self.buffer_chunk_limit:
             chain.next()
@@ -74,17 +76,15 @@ class BaseBuffer(Configurable):
                      "in the forward output ``at the log forwarding server.``"
                      )
 
-        nc = self.chunk_class(key)
+        nc = self.chunk_class(key, now()+self.flush_interval)
 
         try:
             nc += data
-            self._queue.put_nowait(top)
             self._map[key] = nc
+            self._queue.put_nowait(top)
             chain.next()  # What is chain?
-            return self._queue.qsize() == 1
         except gqueue.Full:
             log.error("buffer_queue_limit is exceeded.")
-            nc.purge()
         except:
             nc.purge()
             raise
@@ -92,15 +92,23 @@ class BaseBuffer(Configurable):
     def keys(self):
         return self._map.keys()
 
-    def flush(self):
+    def flush(self, force=True):
+        u"""バッファリング中のチャンクを書きこみ待ちキューへ移動する.
+        *force* が true のときはすべてのチャンクを移動し、 false の時は
+        chunk.expire が古いものだけをフラッシュする.
+        """
         map_ = self._map
         keys = list(map_.keys())
+        t = now()
         for key in keys:
-            chunk = map_.pop(key)
+            chunk = map_[key]
+            if not force and chunk.expire > t:
+                continue
+            del map_[key]
             self._queue.put(chunk) # Would block here.
             gevent.sleep(0) # give a chance to write.
         if keys:
-            log.debug("flush: queue=%s", self._queue.qsize())
+            log.debug("flush: queue size=%s", self._queue.qsize())
 
     def get(self, block=True, timeout=None):
         return self._queue.get(block, timeout)
