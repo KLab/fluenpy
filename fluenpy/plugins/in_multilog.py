@@ -56,7 +56,7 @@ class MultilogInput(Input):
         fd = _open_nonblock(target)
         if offset:
             os.lseek(fd, offset, 0)
-        return os.fstat(fd).st_ino, fd
+        return os.fstat(fd).st_ino, fd, offset
 
     def _open_next(self, fd):
         current = os.path.join(self.dir, 'current')
@@ -92,7 +92,9 @@ class MultilogInput(Input):
     def is_current(self, fd):
         current = os.path.join(self.dir, 'current')
         current_ino = os.stat(current).st_ino
-        return os.fstat(fd).st_ino == current_ino
+        ino = os.fstat(fd).st_ino
+        log.debug("current inode=%d, fd inode=%d", current_ino, ino)
+        return ino == current_ino
 
     def readsome(self, fd):
         while 1:
@@ -125,18 +127,20 @@ class MultilogInput(Input):
         else:
             inode = None
             offset = 0
-        read_pos = offset
 
-        inode, fd = self._open_log(inode, offset)
+        inode, fd, offset = self._open_log(inode, offset)
+        read_pos = offset
         try:
             while not self._shutdown:
                 buf = self.readsome(fd)
 
                 if not buf:
                     if self.is_current(fd):
-                        gevent.sleep(0.2)
+                        log.debug("waiting current. offset=%d", offset)
+                        gevent.sleep(0.3)
                     else:
                         inode, fd = self._open_next(fd)
+                        offset = 0
                     continue
 
                 offset += len(buf)
