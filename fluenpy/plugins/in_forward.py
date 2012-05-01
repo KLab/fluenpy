@@ -86,8 +86,8 @@ class ForwardInput(Input):
                 remain = sock.recv(1000000)
                 if not remain:
                     break
-                pos = 0
                 data = data[pos:] + remain
+                pos = 0
 
     def mpack_handler(self, data, sock):
         unpacker = Unpacker()

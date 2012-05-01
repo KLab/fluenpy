@@ -24,9 +24,9 @@ except ImportError:
 
 
 class MemoryBufferChunk(BaseBufferChunk):
-    def __init__(self, key, data=b''):
-        super(MemoryBufferChunk, self).__init__(key)
-        self._data = bytearray(data)
+    def __init__(self, key, expire):
+        super(MemoryBufferChunk, self).__init__(key, expire)
+        self._data = bytearray()
 
     def __iadd__(self, data):
         self._data += data

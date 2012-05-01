@@ -18,3 +18,5 @@ from fluenpy.plugin import Plugin
 class NullOutput(Output):
     def emit(self, tag, es, chain):
         chain.next()
+
+Plugin.register_output('null', NullOutput)
