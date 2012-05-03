@@ -8,16 +8,13 @@
 """
 from __future__ import print_function, division, absolute_import, with_statement
 import logging
-log = logging.getLogger(__name__)
+Log = logging.getLogger(__name__)
 
-from fluenpy import error
 from fluenpy.plugin import Plugin
 from fluenpy.buffer import BaseBufferChunk, BaseBuffer
 from fluenpy.config import config_param
 
 try:
-    # Python 2.6 では io.BytesIO は Python で実装されているので、
-    # cStringIO の方を優先.
     from cStringIO import StringIO as BytesIO
 except ImportError:
     from io import BytesIO
@@ -26,27 +23,30 @@ except ImportError:
 class MemoryBufferChunk(BaseBufferChunk):
     def __init__(self, key, expire):
         super(MemoryBufferChunk, self).__init__(key, expire)
-        self._data = bytearray()
+        self._buf = BytesIO()
 
     def __iadd__(self, data):
-        self._data += data
+        self._buf.write(data)
         return self
 
     def __len__(self):
-        return len(self._data)
+        return self._buf.tell()
 
     def read(self):
-        return self._data
+        return self._buf.getvalue(1)
 
-    def open(self):
-        return BytesIO(self._data)
+    def purge(self):
+        self._buf.reset()
+
 
 class MemoryBuffer(BaseBuffer):
 
     buffer_chunk_limit = config_param("size", 32 * 1024**2)
     buffer_queue_limit = config_param("integer", 32)
+    flush_interval = config_param('time', 5)
 
-    chunk_class = MemoryBufferChunk
+    def new_chunk(self, key, expire):
+        return MemoryBufferChunk(key, expire)
 
 
 Plugin.register_buffer('memory', MemoryBuffer)

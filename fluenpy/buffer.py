@@ -10,12 +10,15 @@ from __future__ import print_function, division, absolute_import, with_statement
 import logging
 log = logging.getLogger(__name__)
 
-from fluenpy import error
 from fluenpy.config import Configurable, config_param
 
-import gevent.queue as gqueue
-import gevent
+import gevent.queue
 from time import time as now
+
+try:
+    from cStringIO import StringIO as BytesIO
+except ImportError:
+    from io import BytesIO
 
 
 class BaseBufferChunk(object):
@@ -31,6 +34,14 @@ class BaseBufferChunk(object):
         """Return bytesize of this chunk."""
         raise NotImplemented
 
+    def read(self):
+        """Return data written to this chunk."""
+        raise NotImplemented
+
+    def open(self):
+        """Return file-like readable object for this chunk."""
+        return BytesIO(self.read())
+
     def purge(self):
         """Called when throw away this chunk."""
         pass
@@ -40,15 +51,15 @@ class BaseBuffer(Configurable):
 
     buffer_chunk_limit = config_param('size', 128*1024*1024)
     buffer_queue_limit = config_param('integer', 128)
-    flush_interval = config_param('time', 1)
+    flush_interval = config_param('time', 60)
 
     _shutdown = False
 
-    #Override this.
-    chunk_class = None
+    def new_chunk(self, key, expire):
+        raise NotImplemented
 
     def start(self):
-        self._queue = gqueue.Queue(self.buffer_queue_limit)
+        self._queue = gevent.queue.Queue(self.buffer_queue_limit)
         self._map = {}
         gevent.spawn(self.run)
 
@@ -62,7 +73,7 @@ class BaseBuffer(Configurable):
     def emit(self, key, data, chain):
         top = self._map.get(key)
         if not top:
-            top = self._map[key] = self.chunk_class(key, now()+self.flush_interval)
+            top = self._map[key] = self.new_chunk(key, now()+self.flush_interval)
 
         if len(top) + len(data) <= self.buffer_chunk_limit:
             chain.next()
@@ -76,7 +87,7 @@ class BaseBuffer(Configurable):
                      "in the forward output ``at the log forwarding server.``"
                      )
 
-        nc = self.chunk_class(key, now()+self.flush_interval)
+        nc = self.new_chunk(key, now()+self.flush_interval)
 
         try:
             nc += data

@@ -123,9 +123,7 @@ class ObjectBufferedOutput(BufferedOutput):
         if callable(getattr(es, 'to_mpac', None)):
             data = es.to_mpac()
         else:
-            data = bytearray()
-            for rec in es:
-                data += msgpack.packb(rec)
+            data = b''.join(map(msgpack.packb, es))
         key = tag
         self._buffer.emit(key, data, chain)
 
