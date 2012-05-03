@@ -7,7 +7,7 @@ DON'T USE THIS FOR PRODUCTION ENVIRONMENT.
 fluentd_ clone implemented with Python.
 It has fewer plugins than fluentd but easy to setup and memory efficient.
 
-.. _fluentd:: http://fluentd.org/
+.. _fluentd: http://fluentd.org/
 
 
 requirements
@@ -38,7 +38,7 @@ Using virtualenv_ is highly recommanded. Installing virtualenv is very easy::
    $ source /path/to/fluenpy/bin/activate
    (fluenpy) $
 
-_virtualenv:: http://pypi.python.org/pypi/virtualenv
+.. _virtualenv: http://pypi.python.org/pypi/virtualenv
 
 To install fluenpy::
 
