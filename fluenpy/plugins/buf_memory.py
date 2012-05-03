@@ -33,10 +33,10 @@ class MemoryBufferChunk(BaseBufferChunk):
         return self._buf.tell()
 
     def read(self):
-        return self._buf.getvalue(1)
+        return self._buf.getvalue()
 
     def purge(self):
-        self._buf.reset()
+        self._buf = BytesIO()
 
 
 class MemoryBuffer(BaseBuffer):
