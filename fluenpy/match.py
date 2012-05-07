@@ -17,16 +17,16 @@ from fluenpy.output import NullOutputChain
 
 class Match(object):
     def __init__(self, pattern, output):
-        patterns = map(MatchPattern, pattern)
-        if len(patterns) == 1:
-            self._pattern = patterns[0]
-        else:
-            self._pattern = OrMatchPattern(patterns)
-
         self.output = output
 
+        patterns = pattern.split()
+        rex = map(fnmatch.translate, pattern.split())
+        rex = ')|('.join(rex)
+        rex = '\\A((' + rex + '))\\Z'
+        self._rex = re.compile(rex)
+
     def match(self, tag):
-        return self._pattern.match(tag)
+        return self._rex.match(tag) is not None
 
     def emit(self, tag, es):
         chain = NullOutputChain
@@ -37,21 +37,6 @@ class Match(object):
 
     def shutdown(self):
         self.output.shutdown()
-
-
-class MatchPattern(object):
-    def __init__(self, pattern):
-        self._r = re.compile(fnmatch.translate(pattern))
-
-    def match(self, s):
-        return self._r.match(s) is not None
-
-class OrMatchPattern(object):
-    def __init__(self, patterns):
-        self._patterns = patterns
-
-    def match(self, s):
-        return any(p.match(s) for p in self._patterns)
 
 
 class NoMatch(object):
