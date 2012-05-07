@@ -55,8 +55,11 @@ class PluginClass(object):
                     if modname in loaded or modname.startswith('_'):
                         continue
                     log.debug("loading %r", modname)
-                    __import__('fluenpy.plugins.' + modname)
-                    loaded.add(modname)
+                    try:
+                        __import__('fluenpy.plugins.' + modname)
+                        loaded.add(modname)
+                    except Exception as e:
+                        log.error("failed to import %s: %s", modname, e)
 
     def add_plugin_dir(self, path):
         path = os.path.expanduser(path)
