@@ -13,4 +13,8 @@ setup(name="fluenpy",
                 'fluenpy.plugins'
                 ],
       scripts=['scripts/fluen.py'],
+      install_requires=[
+          'msgpack-python',
+          'gevent>=1.0b2',
+          ]
       )
