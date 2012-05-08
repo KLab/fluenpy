@@ -35,6 +35,10 @@ class Element(dict):
         self.used.add(key)
         return dict.__getitem__(self, key)
 
+    def get(self, k, D=None):
+        self.used.add(k)
+        return dict.get(self, k, D)
+
     def not_fetched(self):
         ret = []
         for key in self:
