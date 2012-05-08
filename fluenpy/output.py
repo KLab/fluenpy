@@ -17,12 +17,6 @@ import gevent
 import msgpack
 
 
-class NullOutputChainClass(object):
-    def next(self):
-        pass
-NullOutputChain = NullOutputChainClass()
-
-
 class Output(Configurable):
     def start(self):
         pass
@@ -30,7 +24,7 @@ class Output(Configurable):
     def shutdown(self):
         pass
 
-    def emit(self, tag, es, chain=NullOutputChain):
+    def emit(self, tag, es):
         pass
 
     def secondary_init(self, primary):
@@ -96,10 +90,10 @@ class BufferedOutput(Output):
         self._shutdown = True
         super(BufferedOutput, self).shutdown()
 
-    def emit(self, tag, es, chain=NullOutputChain, key=''):
+    def emit(self, tag, es, key=''):
         self._emit_count += 1
         data = self.format_stream(tag, es)
-        self._buffer.emit(key, data, chain)
+        self._buffer.emit(key, data)
 
     def write(self, chunk):
         raise NotImplemented
@@ -118,12 +112,12 @@ class ObjectBufferedOutput(BufferedOutput):
     継承したクラスは ``format`` メソッドを実装する必要がない.
     """
 
-    def emit(self, tag, es, chain=NullOutputChain):
+    def emit(self, tag, es):
         self._emit_count += 1
         if callable(getattr(es, 'to_mpac', None)):
             data = es.to_mpac()
         else:
             data = b''.join(map(msgpack.packb, es))
         key = tag
-        self._buffer.emit(key, data, chain)
+        self._buffer.emit(key, data)
 

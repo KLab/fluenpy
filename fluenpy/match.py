@@ -12,7 +12,6 @@ log = logging.getLogger(__name__)
 
 import re
 import fnmatch
-from fluenpy.output import NullOutputChain
 
 
 class Match(object):
@@ -29,8 +28,7 @@ class Match(object):
         return self._rex.match(tag) is not None
 
     def emit(self, tag, es):
-        chain = NullOutputChain
-        self.output.emit(tag, es, chain)
+        self.output.emit(tag, es)
 
     def start(self):
         self.output.start()

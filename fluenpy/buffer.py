@@ -70,13 +70,12 @@ class BaseBuffer(Configurable):
             gevent.sleep(check_interval)
             self.flush(force=False)
 
-    def emit(self, key, data, chain):
+    def emit(self, key, data):
         top = self._map.get(key)
         if not top:
             top = self._map[key] = self.new_chunk(key, now()+self.flush_interval)
 
         if len(top) + len(data) <= self.buffer_chunk_limit:
-            chain.next()
             top += data
             return False
 
@@ -93,7 +92,6 @@ class BaseBuffer(Configurable):
             nc += data
             self._map[key] = nc
             self._queue.put_nowait(top)
-            chain.next()  # What is chain?
         except gqueue.Full:
             log.error("buffer_queue_limit is exceeded.")
         except:
