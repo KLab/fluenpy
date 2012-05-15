@@ -26,6 +26,7 @@ except ImportError:
 
 from msgpack import Unpacker
 
+
 class UnpackStream(object):
     def __init__(self, bytes):
         self._bytes = bytes
@@ -76,33 +77,36 @@ class ForwardInput(Input):
 
 
     def json_handler(self, data, sock):
-        decoder = json.JSONDecoder()
+        decode = json.JSONDecoder().raw_decode
         pos = 0
         while 1:
             try:
-                obj, pos = decoder.raw_decode(data, pos)
+                obj, pos = decode(data, pos)
                 self.on_message(obj)
-            except ValueError:
-                remain = sock.recv(1000000)
-                if not remain:
+            except (ValueError, StopIteration):
+                data = data[pos:]
+                next_data = sock.recv(128*1024)
+                if not next_data:
                     break
-                data = data[pos:] + remain
+                data += next_data
                 pos = 0
 
     def mpack_handler(self, data, sock):
         unpacker = Unpacker()
         unpacker.feed(data)
+        # default chunk size of memory buffer is 32MB
+        RECV_SIZE = 32*1024*1024
         while 1:
             for msg in unpacker:
                 self.on_message(msg)
-            next = sock.recv(1000000)
-            if not next:
+            next_data = sock.recv(RECV_SIZE)
+            if not next_data:
                 break
-            unpacker.feed(next)
+            unpacker.feed(next_data)
 
     def on_connect(self, sock, addr):
         try:
-            data = sock.recv(1000000)
+            data = sock.recv(128*1024)
             if not data:
                 return
             if data[0] in b'{[':
