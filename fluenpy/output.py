@@ -21,6 +21,11 @@ try:
 except ImportError:
     from io import BytesIO
 
+try:
+    import simplejson as json
+except ImportError:
+    import json
+
 
 class Output(Configurable):
     def start(self):
@@ -104,7 +109,7 @@ class BufferedOutput(Output):
         raise NotImplemented
 
     def format(self, tag, time, record):
-        return "%s\t%s\t%s\n" % (time, tag, record)
+        return "%s\t%s\t%s\n" % (time, tag, json.dumps(record))
 
     def format_stream(self, tag, es):
         buf = BytesIO()
