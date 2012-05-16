@@ -16,6 +16,11 @@ from time import time as now
 import gevent
 import msgpack
 
+try:
+    from cStriongIO import StringIO as BytesIO
+except ImportError:
+    from io import BytesIO
+
 
 class Output(Configurable):
     def start(self):
@@ -57,8 +62,8 @@ class BufferedOutput(Output):
         #todo: status
 
     def start(self):
-        super(BufferedOutput, self).start()
         self._buffer.start()
+        super(BufferedOutput, self).start()
         #todo: secondary.start()
         gevent.spawn(self.run)
 
@@ -98,12 +103,15 @@ class BufferedOutput(Output):
     def write(self, chunk):
         raise NotImplemented
 
+    def format(self, tag, time, record):
+        return "%s\t%s\t%s\n" % (time, tag, record)
+
     def format_stream(self, tag, es):
-        out = bytearray()
+        buf = BytesIO()
         format = self.format
         for time, record in es:
-            out += format(tag, time, record)
-        return out
+            buf.write(format(tag, time, record))
+        return buf.getvalue()
 
 
 class ObjectBufferedOutput(BufferedOutput):
