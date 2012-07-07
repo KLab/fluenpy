@@ -3,7 +3,7 @@
     fluenpy.plugins.in_multilog
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    Base class for input plugins.
+    tail from multilog.
 
     :copyright: (c) 2012 by INADA Naoki
     :license: Apache v2
