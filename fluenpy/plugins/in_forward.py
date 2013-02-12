@@ -10,7 +10,6 @@ from __future__ import print_function, division, absolute_import, with_statement
 import logging
 log = logging.getLogger(__name__)
 
-import os
 from time import time as now
 
 from fluenpy.engine import Engine
