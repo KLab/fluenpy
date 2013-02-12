@@ -14,7 +14,7 @@ class Element(dict):
         self.update(attrs)
         self.used = used or set()
 
-    def add_element(name, arg=''):
+    def add_element(self, name, arg=''):
         e = Element(name, arg, {}, [])
         self.elements.append(e)
         return e
