@@ -162,7 +162,7 @@ class ApacheParser(Configurable):
 class TextParser(object):
     TEMPLATE_FACTORIES = {
         'apache': lambda: RegexpParser(r"""^(?P<host>[^ ]*) [^ ]* (?P<user>[^ ]*) \[(?P<time>[^\]]*)\] "(?P<method>\S+)(?: +(?P<path>[^ ]*) +\S*)?" (?P<code>[^ ]*) (?P<size>[^ ]*)(?: "(?P<referer>[^\"]*)" "(?P<agent>[^\"]*)")?$""", {'time_format': "%d/%b/%Y:%H:%M:%S %z"}),
-        'apache2': lambda: ApacheParser()
+        'apache2': lambda: ApacheParser(),
         'syslog': lambda: RegexpParser(r"""^(?P<time>[^ ]*\s*[^ ]* [^ ]*) (?P<host>[^ ]*) (?P<ident>[a-zA-Z0-9_\/\.\-]*)(?:\[(?P<pid>[0-9]+)\])?[^\:]*\: *(?P<message>.*)$""", {'time_format': "%b %d %H:%M:%S"}),
         'json': lambda: JSONParser(),
         'tsv': lambda: TSVParser(),
