@@ -172,6 +172,8 @@ class Configurable(object):
             if varname in conf:
                 setattr(self, varname, param.type(conf[varname]))
             elif param.default is not _undef:
-                setattr(self, varname, param.default)
+                # Don't overwrite param already set.
+                if getattr(self, varname, param) is param:
+                    setattr(self, varname, param.default)
             else:
                 raise ConfigError("%r parameter is required" % (param.name,))

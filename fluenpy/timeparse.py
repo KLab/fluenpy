@@ -6,17 +6,15 @@ CLASSES:
                 time information
 
 FUNCTIONS:
-    _getlang -- Figure out what language is being used for the locale
     strptime -- Calculates the time struct represented by the passed-in string
 
 """
 import time
-import locale
-import calendar
 from re import compile as re_compile
 from re import IGNORECASE
 from re import escape as re_escape
 from datetime import date as datetime_date
+from datetime import datetime, timedelta
 try:
     from thread import allocate_lock as _thread_allocate_lock
 except:
@@ -24,9 +22,7 @@ except:
 
 __all__ = []
 
-def _getlang():
-    # Figure out what the current language is set to.
-    return locale.getlocale(locale.LC_TIME)
+EPOCH = datetime(1970, 1, 1)
 
 class LocaleTime(object):
     """Stores and handles locale-specific information related to time.
@@ -67,14 +63,11 @@ class LocaleTime(object):
         since changing the timezone is worthless without that call.
 
         """
-        self.lang = _getlang()
         self.__calc_weekday()
         self.__calc_month()
         self.__calc_am_pm()
         self.__calc_timezone()
         self.__calc_date_time()
-        if _getlang() != self.lang:
-            raise ValueError("locale changed during initialization")
 
     def __pad(self, seq, front):
         # Add '' to seq to either the front (is True), else the back.
@@ -86,76 +79,22 @@ class LocaleTime(object):
         return seq
 
     def __calc_weekday(self):
-        # Set self.a_weekday and self.f_weekday using the calendar
-        # module.
-        a_weekday = [calendar.day_abbr[i].lower() for i in range(7)]
-        f_weekday = [calendar.day_name[i].lower() for i in range(7)]
-        self.a_weekday = a_weekday
-        self.f_weekday = f_weekday
+        self.a_weekday = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+        self.f_weekday = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 
     def __calc_month(self):
         # Set self.f_month and self.a_month using the calendar module.
-        a_month = [calendar.month_abbr[i].lower() for i in range(13)]
-        f_month = [calendar.month_name[i].lower() for i in range(13)]
-        self.a_month = a_month
-        self.f_month = f_month
+        self.a_month = ['', 'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
+        self.f_month = ['', 'january', 'february', 'march', 'april', 'may', 'june',
+                        'july', 'august', 'september', 'october', 'november', 'december']
 
     def __calc_am_pm(self):
-        # Set self.am_pm by using time.strftime().
-
-        # The magic date (1999,3,17,hour,44,55,2,76,0) is not really that
-        # magical; just happened to have used it everywhere else where a
-        # static date was needed.
-        am_pm = []
-        for hour in (01,22):
-            time_tuple = time.struct_time((1999,3,17,hour,44,55,2,76,0))
-            am_pm.append(time.strftime("%p", time_tuple).lower())
-        self.am_pm = am_pm
+        self.am_pm = ['am', 'pm']
 
     def __calc_date_time(self):
-        # Set self.date_time, self.date, & self.time by using
-        # time.strftime().
-
-        # Use (1999,3,17,22,44,55,2,76,0) for magic date because the amount of
-        # overloaded numbers is minimized.  The order in which searches for
-        # values within the format string is very important; it eliminates
-        # possible ambiguity for what something represents.
-        time_tuple = time.struct_time((1999,3,17,22,44,55,2,76,0))
-        date_time = [None, None, None]
-        date_time[0] = time.strftime("%c", time_tuple).lower()
-        date_time[1] = time.strftime("%x", time_tuple).lower()
-        date_time[2] = time.strftime("%X", time_tuple).lower()
-        replacement_pairs = [('%', '%%'), (self.f_weekday[2], '%A'),
-                    (self.f_month[3], '%B'), (self.a_weekday[2], '%a'),
-                    (self.a_month[3], '%b'), (self.am_pm[1], '%p'),
-                    ('1999', '%Y'), ('99', '%y'), ('22', '%H'),
-                    ('44', '%M'), ('55', '%S'), ('76', '%j'),
-                    ('17', '%d'), ('03', '%m'), ('3', '%m'),
-                    # '3' needed for when no leading zero.
-                    ('2', '%w'), ('10', '%I')]
-        replacement_pairs.extend([(tz, "%Z") for tz_values in self.timezone
-                                                for tz in tz_values])
-        for offset,directive in ((0,'%c'), (1,'%x'), (2,'%X')):
-            current_format = date_time[offset]
-            for old, new in replacement_pairs:
-                # Must deal with possible lack of locale info
-                # manifesting itself as the empty string (e.g., Swedish's
-                # lack of AM/PM info) or a platform returning a tuple of empty
-                # strings (e.g., MacOS 9 having timezone as ('','')).
-                if old:
-                    current_format = current_format.replace(old, new)
-            # If %W is used, then Sunday, 2005-01-03 will fall on week 0 since
-            # 2005-01-03 occurs before the first Monday of the year.  Otherwise
-            # %U is used.
-            time_tuple = time.struct_time((1999,1,3,1,1,1,6,3,0))
-            if '00' in time.strftime(directive, time_tuple):
-                U_W = '%W'
-            else:
-                U_W = '%U'
-            date_time[offset] = current_format.replace('11', U_W)
-        self.LC_date_time = date_time[0]
-        self.LC_date = date_time[1]
-        self.LC_time = date_time[2]
+        self.LC_date_time = '%a %b %d %H:%M:%S %Y'
+        self.LC_date = '%m/%d/%Y'
+        self.LC_time = '%H:%M:%S'
 
     def __calc_timezone(self):
         # Set self.timezone by using time.tzname.
@@ -212,6 +151,7 @@ class TimeRE(dict):
             'Z': self.__seqToRE((tz for tz_names in self.locale_time.timezone
                                         for tz in tz_names),
                                 'Z'),
+            'z': r"(?P<z>[+-]\d\d\d\d)",
             '%': '%'})
         base.__setitem__('W', base.__getitem__('U').replace('U', 'W'))
         base.__setitem__('c', self.pattern(self.locale_time.LC_date_time))
@@ -268,7 +208,7 @@ _cache_lock = _thread_allocate_lock()
 # DO NOT modify _TimeRE_cache or _regex_cache without acquiring the cache lock
 # first!
 _TimeRE_cache = TimeRE()
-_CACHE_MAX_SIZE = 5 # Max number of regexes stored in _regex_cache
+_CACHE_MAX_SIZE = 100 # Max number of regexes stored in _regex_cache
 _regex_cache = {}
 
 def _calc_julian_from_U_or_W(year, week_of_year, day_of_week, week_starts_Mon):
@@ -296,9 +236,6 @@ def _strptime(data_string, format="%a %b %d %H:%M:%S %Y"):
     """Return a time struct based on the input string and the format string."""
     global _TimeRE_cache, _regex_cache
     with _cache_lock:
-        if _getlang() != _TimeRE_cache.locale_time.lang:
-            _TimeRE_cache = TimeRE()
-            _regex_cache.clear()
         if len(_regex_cache) > _CACHE_MAX_SIZE:
             _regex_cache.clear()
         locale_time = _TimeRE_cache.locale_time
@@ -332,6 +269,7 @@ def _strptime(data_string, format="%a %b %d %H:%M:%S %Y"):
     tz = -1
     # Default to -1 to signify that values not known; not critical to have,
     # though
+    tzoffset = None
     week_of_year = -1
     week_of_year_start = -1
     # weekday and julian defaulted to -1 so as to signal need to calculate
@@ -425,6 +363,11 @@ def _strptime(data_string, format="%a %b %d %H:%M:%S %Y"):
                     else:
                         tz = value
                         break
+        elif group_key == 'z':
+            tzoffset = int(found_dict['z'][1:])
+            tzoffset = (tzoffset // 100) * 60 + tzoffset % 100
+            if found_dict['z'][0] == '-':
+                tzoffset = -tzoffset
     # If we know the week of the year and what day of that week, we can figure
     # out the Julian day of the year.
     if julian == -1 and week_of_year != -1 and weekday != -1:
@@ -446,9 +389,11 @@ def _strptime(data_string, format="%a %b %d %H:%M:%S %Y"):
         day = datetime_result.day
     if weekday == -1:
         weekday = datetime_date(year, month, day).weekday()
-    return (time.struct_time((year, month, day,
-                              hour, minute, second,
-                              weekday, julian, tz)), fraction)
 
-def _strptime_time(data_string, format="%a %b %d %H:%M:%S %Y"):
-    return _strptime(data_string, format)[0]
+    dt = datetime(year, month, day, hour, minute, second)
+    if tzoffset:
+        dt -= timedelta(minutes=tzoffset)
+    return dt
+
+def unix_strptime(data_string, format="%a %b %d %H:%M:%S %Y"):
+    return (_strptime(data_string, format) - EPOCH).total_seconds()

@@ -15,6 +15,7 @@ import re
 import time
 from fluenpy.error import ConfigError
 from fluenpy.config import Configurable, config_param
+from fluenpy.timeparse import unix_strptime
 
 try:
     from simplejson import loads
@@ -26,6 +27,8 @@ class RegexpParser(Configurable):
     time_format = config_param('string', None)
 
     def __init__(self, regexp, conf=None):
+        if isinstance(regexp, basestring):
+            regexp = re.compile(regexp)
         self.regexp = regexp
         if conf is not None:
             self.configure(conf)
@@ -44,8 +47,8 @@ class RegexpParser(Configurable):
             if value is None:
                 continue
             if name == 'time':
-                if self.time_format is not None:
-                    t = time.mktime(time.strptime(value, self.time_format))
+                if self.time_format:
+                    t = unix_strptime(value, self.time_format)
                 else:
                     #TODO: Ruby だと Time.parse を使ってる.
                     #何か標準的なフォーマットでのパースを試行するべき.
@@ -70,7 +73,7 @@ class JSONParser(Configurable):
             value = record.pop(self.time_key)
             if value:
                 if self.time_format is not None:
-                    t = time.mktime(time.strptime(value, self.time_format))
+                    t = unix_strptime(value, self.time_format)
                 else:
                     t = int(value)
         except KeyError:
@@ -100,7 +103,7 @@ class ValuesParser(Configurable):
         if self.time_key:
             value = record.pop(self.time_key)
             if self.time_format:
-                t = time.mktime(time.strptime(value, self.time_format))
+                t = unix_strptime(value, self.time_format)
             else:
                 #TODO: 一般的なフォーマットでのparseを試みる
                 t = float(value)
@@ -127,7 +130,6 @@ class LabeledTSVParser(ValuesParser):
         return self.record_map(record)
 
 #TODO: CSVParser
-#TODO: ApacheParser
 
 class ApacheParser(Configurable):
 
@@ -144,7 +146,7 @@ class ApacheParser(Configurable):
             if record[k] == '-':
                 record[k] = None
 
-        t = time.mktime(time.strptime(record['time'], "%d/%b/%Y:%H:%M:%S %z"))
+        t = unix_strptime(record['time'], "%d/%b/%Y:%H:%M:%S %z")
         del record['time']
 
         try:
