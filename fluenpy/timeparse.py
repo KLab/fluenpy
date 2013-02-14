@@ -263,9 +263,8 @@ def _strptime(data_string, format="%a %b %d %H:%M:%S %Y"):
     if len(data_string) != found.end():
         raise ValueError("unconverted data remains: %s" %
                           data_string[found.end():])
-    year = 1900
-    month = day = 1
-    hour = minute = second = fraction = 0
+    year, month, day, hour, minute, second = time.gmtime()[:6]
+    fraction = 0
     tz = -1
     # Default to -1 to signify that values not known; not critical to have,
     # though

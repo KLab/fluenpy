@@ -121,6 +121,7 @@ class TSVParser(ValuesParser):
         return self.record_map(record)
 
 class LabeledTSVParser(ValuesParser):
+    keys = ""
     delimiter = config_param('string', '\t')
     label_delimiter = config_param('string', ':')
 
