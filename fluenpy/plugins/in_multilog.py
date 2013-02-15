@@ -115,7 +115,6 @@ class MultilogInput(Input):
             tai = 0
         Engine.emit(self.tag, tai, {self.key: line})
 
-
     def run(self):
         db = gdbm.open(self.pos_file, 'cs')
         fd = None

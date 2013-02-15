@@ -14,6 +14,7 @@ import logging
 import os
 import errno
 import time
+import re
 
 import gevent
 from fluenpy.plugin import Plugin
@@ -108,6 +109,86 @@ class TailInput(Input):
                     gevent.sleep(0.2)
                     continue
                 raise
+
+class PositionFile(object):
+    def __init__(self, file, map, last_pos):
+        self.file = file
+        self.map = map
+        self.last_pos = last_pos
+
+    def __getitem__(self, path):
+        m = self.map.get(path)
+        if m is not None:
+            return m
+
+        f = self.file
+        f.seek(self.last_pos)
+        f.write(path + b"\t")
+        offset = f.tell()
+        f.write("0000000000000000\t00000000\n")
+        self.last_pos = f.tell()
+        self.map[path] = FilePositionEntry(f, offset)
+
+    @classmethod
+    def parse(cls, file):
+        map = {}
+        file.seek(0)
+        r = re.compile("^([^\t]+)\t([0-9a-fA-F]+)\t([0-9a-fA-F]+)")
+        for line in file:
+            m = r.match(line)
+            if not m:
+                continue
+            path = m.group(1)
+            #pos = int(m.group(2), 16)
+            #inode = int(m.group(3), 16)
+            offset = file.tell() - len(line) + len(path) + 1
+            map[path] = FilePositionEntry(file, offset)
+        return cls(file, map, file.tell())
+
+class MemoryPositionEntry(object):
+    def __init__(self):
+        self.pos = self.inode = 0
+
+    def update(self, inode, pos):
+        self.inode = inode
+        self.pos = pos
+
+    def update_pos(self, pos):
+        self.pos = pos
+
+    def read_pos(self):
+        return self.pos
+
+    def read_inode(self):
+        return self.inode
+
+class FilePositionEntry(object):
+    POS_SIZE = 16
+    INO_OFFSET = 17
+    INO_SIZE = 8
+    LN_OFFSET = 25
+    SIZE = 26
+
+    def __init__(self, file, offset):
+        self.file = file
+        self.offset = offset
+
+    def update(self, inode, pos):
+        self.file.seek(self.offset)
+        self.file.write(b"%016x\t%08x" % (pos, inode))
+        self.inode = inode
+
+    def update_pos(self, pos):
+        self.file.seek(self.offset)
+        self.file.write("b%016x" % (pos,))
+
+    def read_inode(self):
+        self.file.seek(self.offset + self.INO_OFFSET)
+        return int(self.file.read(8), 16)
+
+    def read_pos(self):
+        self.file.seek(self.offset)
+        return int(self.file.read(16), 16)
 
 
 Plugin.register_input('tail', TailInput)
