@@ -21,14 +21,21 @@ from fluenpy.plugin import Plugin
 from fluenpy.input import Input
 from fluenpy.engine import Engine
 from fluenpy.config import config_param
+from fluenpy.parser import TextParser
 
 log = logging.getLogger(__name__)
 
 
 class TailInput(Input):
 
-    path = tag = key = config_param('string')
+    path = tag = config_param('string')
     rotate_wait = config_param('time', default=5)
+    pos_file = config_param('string', None)
+
+    def __init__(self):
+        self._paths = []
+        self._pf_file = None
+        self._pf = None
 
     def start(self):
         self._shutdown = False
@@ -40,61 +47,117 @@ class TailInput(Input):
 
     def configure(self, conf):
         super(TailInput, self).configure(conf)
-        self._path = self.path.strip()
+        self._paths = [p.strip() for p in self.path.split(',')]
 
-    def emit(self, line):
-        Engine.emit(self.tag, int(time.time()), {self.key: line})
+        if self.pos_file:
+            self._pf_file = open(self.pos_file, 'r+b', 0)
+            self._pf = PositionFile.parse(self.pf_file)
+        else:
+            log.warn("'pos_file PATH' parameter is not set to a 'tail' source.")
+            log.warn("this parameter is highly recommended to save the position to resume tailing.")
+
+        self.parser = TextParser()
+        self.parser.configure(conf)
+
+    def receive_lines(self, lines):
+        lines = map(self.parser.parse, lines)
+        Engine.emit_stream(self.tag, lines)
 
     def run(self):
-        path = self._path
+        watchers = []
+        threads = []
+        for path in self._paths:
+            pe = self._pf[path] if self._pf else None
+            w = TailWatcher(path, self.rotate_wait, pe, self.receive_lines)
+            watchers.append(w)
+            threads.append(gevent.spawn(w.run))
+
+        gevent.joinall(self.watchers)
+
+
+class TailWatcher(object):
+    def __init__(self, path, rotate_wait, position_entry, callback):
+        self.path = path
+        self.rotate_wait = rotate_wait
+        self.position_entry = position_entry
+        self.callback = callback
+        self.stop = False
+        self.buf = b''
+        self.fd = None
+
+    def run(self):
+        first = True
         fd = None
-        before = b''
         try:
-            while not self._shutdown:
-                if fd is None:
-                    try:
-                        fd = os.open(path, os.O_NONBLOCK)
-                        log.debug("Opened log file.")
-                    except OSError:
-                        log.debug("Couldn't open log file.")
-                        gevent.sleep(self.rotate_wait)
-                        continue
-
-                buf = self.readsome(fd)
-
-                if not buf:
-                    if self.is_current(fd):
-                        gevent.sleep(0.3)
-                        continue
-                    else:
-                        gevent.sleep(self.rotate_wait)
-                        buf = self.readsome(fd)
-                        if not buf:
-                            os.close(fd)
-                            fd = None
-                            log.debug("Closed log file.")
-                            continue
-
-                if b'\n' not in buf:
-                    before += buf
+            while not self.stop:
+                self.ensure_open(first)
+                first = False
+                if not self.fd:
+                    gevent.sleep(self.rotate_wait)
                     continue
 
-                buf = before + buf
-                before = b''
-                lines = buf.splitlines(True)
+                self.tail(fd)
+                if self.is_current(fd):
+                    gevent.sleep(0.2)
+                    continue
 
-                if not lines[-1].endswith(b'\n'):
-                    before = lines.pop()
-
-                for line in lines:
-                    self.emit(line.rstrip())
+                # rotate
+                gevent.sleep(self.rotate_wait)
+                self.tail(fd)
+                os.close(fd)
+                fd = None
+                if self.buf:
+                    self.receive_lines([self.buf])
+                    self.buf = b''
         finally:
             if fd is not None:
                 os.close(fd)
 
+    def ensure_open(self, first):
+        if self.fd:
+            return self.fd
+        try:
+            self.fd = fd = os.open(self.path, os.O_NONBLOCK)
+            log.debug("Opened log file: %s", self.path)
+            st = os.fstat(fd)
+            if first:
+                if st.st_ino == self.position_entry.read_inode():
+                    # seek to saved position
+                    self.pos = self.position_entry.read_pos()
+                else:
+                    # begin tailing.
+                    self.pos = st.st_size
+                    self.position_entry.update(st.st_ino, self.pos)
+                os.lseek(fd, self.pos, os.SEEK_SET)
+            else:
+                # rotate
+                self.pos = 0
+                self.position_entry(st.st_ino, 0)
+        except OSError:
+            log.debug("Couldn't open log file: %s", self.path)
+            return None
+
+    def tail(self, fd):
+        buf = self.buf
+        while True:
+            read = self.readsome(fd)
+            if not read:
+                break
+            self.pos += len(read)
+            buf += read
+            read = None
+            lines = buf.splitlines(True)
+            if not lines[-1].endswith(b'\n'):
+                buf = lines.pop()
+            else:
+                buf = b''
+            self.callback(lines)
+            self.position_entry.update_pos(self.pos - len(buf))
+        self.buf = buf
+
     def is_current(self, fd):
         try:
-            ino = os.stat(self._path).st_ino
+            ino = os.stat(self.path).st_ino
         except OSError:
             return False
         else:
@@ -103,10 +166,10 @@ class TailInput(Input):
     def readsome(self, fd):
         while 1:
             try:
-                return os.read(fd, 1024**2)
+                return os.read(fd, 8000)
             except OSError as e:
                 if e.errno == errno.EAGAIN:
-                    gevent.sleep(0.2)
+                    gevent.sleep(0.1)
                     continue
                 raise
 
